@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4f9fe8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Skyhaven">
+<meta name="description" content="Build a city on a floating island and grow it into the clouds.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icons/favicon.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+<title>Skyhaven</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE occasion: a cozy toy city in the sky, calm and rewarding
+   IDEA a diorama on a desk with a builder's tray of pieces below it
+   PICTURE the full-screen floating island; every piece in the tray is a real render of the building
+   COLOUR sky gradient driven by the day cycle, white ink on smoked-glass plates, crystal lilac for the active tool, leaf green for gains, coral for problems
+   TYPE Cinzel for the island's name and quest titles, Figtree for numbers and controls
+   LAYOUT name and charter top-left, ledger top-right, quest board down the right, builder's tray along the bottom; on phones the ledger wraps under the name and quests open as a sheet */
+:root{color-scheme:dark;--glass:rgba(14,18,36,.66);--edge:rgba(255,255,255,.14);--ink:#f6f4ff;--soft:rgba(246,244,255,.74);--accent:#c7a6ff;--good:#9be564;--bad:#ff8a6b}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:linear-gradient(180deg,#4f9fe8 0%,#cdeaff 85%);color:var(--ink);font:15px/1.4 'Figtree',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+#scene{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.plate{background:var(--glass);border:1px solid var(--edge);border-radius:16px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 8px 24px rgba(0,0,0,.16)}
+button{font:inherit;color:inherit}
+.btn{min-width:40px;height:40px;padding:0 10px;display:inline-grid;place-items:center;border-radius:10px;border:1px solid var(--edge);background:rgba(255,255,255,.08);cursor:pointer;transition:background .15s}
+.btn:hover{background:rgba(255,255,255,.18)}
+.btn:focus-visible,.tool:focus-visible,.card:focus-visible,.mini:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn[aria-pressed=true]{background:var(--accent);color:#1b1230;border-color:transparent}
+.btn svg{width:18px;height:18px}
+
+.top{position:fixed;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;pointer-events:none}
+.top>*{pointer-events:auto}
+.brand{padding:10px 14px 12px;width:min(250px,100%);display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.brand h1{margin:0;font:700 clamp(24px,3vw,32px)/1.05 'Cinzel',Georgia,serif;color:#fff}
+.charter{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;margin-top:4px}
+#rank{font-weight:700;font-size:15px}
+#rank-next{font-size:13px;color:var(--soft)}
+.rankbar{grid-column:1/-1;height:6px;border-radius:4px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:6px}
+#rank-fill{display:block;height:100%;width:0;background:var(--good);transition:width .6s}
+.ledger{padding:8px 10px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.stat{display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:4px 10px;border-radius:10px;min-height:44px}
+.stat svg{grid-row:1/3;width:20px;height:20px;opacity:.9}
+.stat b{font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat small{font-size:13px;color:var(--soft);white-space:nowrap}
+.stat.bad b{color:var(--bad)}
+#v-net.bad{color:var(--bad)}
+.stat.bump{animation:bump .5s}
+@keyframes bump{30%{background:rgba(155,229,100,.25)}}
+.sep{width:1px;align-self:stretch;background:var(--edge);margin:4px 2px}
+.clock{display:flex;align-items:center;gap:6px;padding-left:4px}
+.clock .when{display:grid;line-height:1.15;margin-right:4px}
+.clock .when b{font-size:15px}
+.clock .when small{font-size:13px;color:var(--soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+.speeds{display:flex;gap:4px}
+.speeds .btn{min-width:36px;padding:0 6px;font-weight:600;font-size:14px}
+.skipwrap{position:relative}
+#skip-pop{position:absolute;right:0;top:calc(100% + 8px);padding:8px;display:grid;gap:6px;width:max-content;z-index:8}
+#skip-pop[hidden]{display:none}
+#skip-pop .mini{height:40px;font-size:14px}
+#away{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);padding:14px 18px;display:grid;gap:2px;text-align:center;z-index:9;pointer-events:none}
+#away[hidden]{display:none}
+#away strong{font:700 18px/1.2 'Cinzel',Georgia,serif}
+#away span{font-size:14px;color:var(--soft)}
+#gain{position:fixed;top:64px;left:24px;z-index:6;font-weight:700;font-size:20px;color:var(--good);opacity:0;pointer-events:none;text-shadow:0 2px 8px rgba(0,0,0,.4)}
+#gain.bad{color:var(--bad)}
+#gain.show{animation:gain 1.8s ease-out}
+@keyframes gain{0%{opacity:0;transform:translateY(8px)}15%{opacity:1}100%{opacity:0;transform:translateY(-22px)}}
+
+#quests{position:fixed;right:12px;top:118px;width:300px;overflow:auto;padding:12px 12px 6px}
+#quests h2{margin:0 0 8px;font:700 18px/1.2 'Cinzel',Georgia,serif}
+#quest-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.q{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid transparent}
+.q.done{border-color:rgba(155,229,100,.55);background:rgba(155,229,100,.1)}
+.q.pet{border-color:rgba(199,166,255,.5);background:rgba(199,166,255,.1)}
+.qt{font-weight:700;font-size:15px}
+.qd{font-size:13px;color:var(--soft);margin-top:2px}
+.bar{height:5px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--good)}
+.qrow{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px}
+.prog,.due{color:var(--soft);font-variant-numeric:tabular-nums}
+.rw{margin-left:auto;font-weight:700;color:#ffe08a;white-space:nowrap}
+.mini{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--edge);background:rgba(255,255,255,.1);cursor:pointer;font-weight:600;font-size:13px}
+.mini.claim{background:var(--good);color:#132a07;border-color:transparent}
+
+.tray{position:fixed;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));padding:8px 10px 10px}
+#status{margin:0 4px 8px;font-size:14px;color:var(--soft);min-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row{display:flex;gap:10px;align-items:stretch}
+#tools{display:flex;gap:6px;flex:none}
+.tool{flex:none;width:64px;min-height:60px;display:grid;justify-items:center;align-content:center;gap:4px;padding:6px 4px;border-radius:12px;border:1px solid var(--edge);background:rgba(255,255,255,.06);cursor:pointer;font-size:13px;font-weight:600}
+.tool svg{width:24px;height:24px}
+.tool[aria-pressed=true],.card[aria-pressed=true]{background:rgba(199,166,255,.28);border-color:var(--accent)}
+.tool:hover,.card:hover{background:rgba(255,255,255,.14)}
+#cards{display:flex;gap:6px;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:2px;scrollbar-width:thin}
+.card{position:relative;flex:none;width:92px;display:grid;justify-items:center;padding:4px 4px 6px;border-radius:12px;border:1px solid var(--edge);background:rgba(255,255,255,.06);cursor:pointer;scroll-snap-align:start}
+.card img{width:64px;height:64px;display:block}
+.card .nm{font-size:13px;font-weight:600;line-height:1.15;text-align:center;white-space:nowrap}
+.card .cost{font-size:13px;color:#ffe08a;font-variant-numeric:tabular-nums}
+.card .cost::before{content:'';display:inline-block;width:9px;height:9px;border-radius:50%;background:#ffd166;margin-right:4px;vertical-align:0}
+.card.poor .cost{color:var(--bad)}
+.card .lock{display:none}
+.card.locked{opacity:.55}
+.card.locked .lock{display:block;position:absolute;top:6px;left:6px;right:6px;padding:2px 4px;border-radius:6px;background:rgba(14,18,36,.85);font-size:13px;font-weight:600;text-align:center}
+.qbtn{display:none;position:relative}
+#q-badge[hidden]{display:none}
+#q-badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:10px;background:var(--good);color:#132a07;font-size:13px;font-weight:700;display:grid;place-items:center;padding:0 5px}
+
+#tip{position:fixed;left:0;top:0;max-width:260px;padding:9px 12px;border-radius:12px;pointer-events:none;z-index:6}
+#tip strong{display:block;font-size:15px}
+#tip span{display:block;margin-top:2px;font-size:13px;color:var(--soft)}
+#tip.err span{color:var(--bad)}
+#toasts{position:fixed;left:12px;top:128px;display:grid;gap:6px;width:min(320px,calc(100% - 24px));pointer-events:none;z-index:5}
+.toast{padding:9px 12px;font-size:14px;border-radius:12px;transition:opacity .4s,transform .4s;animation:tin .3s}
+.toast.good{border-color:rgba(155,229,100,.6)}
+.toast.warn{border-color:rgba(255,138,107,.7)}
+.toast.out{opacity:0;transform:translateX(-12px)}
+@keyframes tin{from{opacity:0;transform:translateX(-12px)}}
+#menu{position:fixed;inset:0;display:grid;place-items:center;background:rgba(6,8,20,.45);z-index:10;padding:16px}
+#menu[hidden]{display:none}
+#menu .plate{padding:20px;width:min(380px,100%)}
+#menu h2{margin:0 0 6px;font:700 22px/1.2 'Cinzel',Georgia,serif}
+#menu p{margin:0 0 14px;color:var(--soft);font-size:15px}
+#menu .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#menu .danger{background:var(--bad);color:#2a0d05;border-color:transparent;font-weight:700}
+#fail{position:fixed;inset:auto 16px 50% 16px;max-width:420px;margin:auto;padding:16px 18px}
+@media (max-width:900px){
+  #quests{display:none;left:12px;right:12px;width:auto;z-index:7}
+  #quests.open{display:block}
+  .qbtn{display:grid}
+}
+@media (max-width:600px){
+  .top{gap:6px}
+  .brand{width:100%;padding:8px 12px 10px}
+  .ledger{width:100%;padding:6px;gap:2px}
+  .stat{padding:2px 6px;min-height:40px}
+  .stat b{font-size:15px}
+  .stat svg{width:16px;height:16px}
+  .sep{display:none}
+  .clock{width:100%;justify-content:space-between}
+  .row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+  #tools{display:contents}
+  .tool{width:auto;min-height:52px}
+  #cards{grid-column:1/-1}
+  .card{width:80px}
+  .card img{width:56px;height:56px}
+  #status{white-space:normal;font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){.stat.bump,#gain.show,.toast{animation:none}}
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="Isometric view of your floating island city"></canvas>
+
+<div class="top">
+  <section class="brand plate" aria-label="Island">
+    <h1 id="isle-name">Skyhaven</h1>
+    <button class="btn" id="menu-btn" type="button" aria-label="Game menu"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg></button>
+    <div class="charter"><span id="rank">Hamlet</span><span id="rank-next">20 more settlers to Village</span></div>
+    <div class="rankbar"><i id="rank-fill"></i></div>
+  </section>
+  <section class="ledger plate" aria-label="City ledger">
+    <div class="stat" id="s-coins" title="Coins"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="#ffd166"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="#c98a1a" stroke-width="1.6"/></svg><b id="v-coins">250</b><small id="v-net">+0 a day</small></div>
+    <div class="stat" id="s-pop" title="Settlers and homes"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.5 2.7-6 6-6s6 2.5 6 6z"/><circle cx="17" cy="9" r="2.6" opacity=".7"/><path d="M14.5 13.4c3.4-.6 6.5 1.6 6.5 5.6h-4.4" opacity=".7"/></svg><b id="v-pop">0 / 0</b><small>settlers / homes</small></div>
+    <div class="stat" id="s-jobs" title="Workers and jobs"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h16v11H4z" opacity=".85"/><path d="M9 8V5.5h6V8" fill="none" stroke="currentColor" stroke-width="2"/></svg><b id="v-jobs">0 / 0</b><small>working / jobs</small></div>
+    <div class="stat" id="s-food" title="Food grown and settlers fed"><svg viewBox="0 0 24 24"><path d="M12 21V9" stroke="#e8c35a" stroke-width="2"/><ellipse cx="12" cy="6" rx="2.4" ry="3.4" fill="#e8c35a"/><ellipse cx="8.4" cy="11" rx="2.2" ry="3" fill="#e8c35a" transform="rotate(-30 8.4 11)"/><ellipse cx="15.6" cy="11" rx="2.2" ry="3" fill="#e8c35a" transform="rotate(30 15.6 11)"/></svg><b id="v-food">0 / 0</b><small>food / needed</small></div>
+    <div class="stat" id="s-happy" title="Happiness"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14c1.8 2.2 5.2 2.2 7 0" stroke-linecap="round"/><circle cx="9" cy="10" r=".8" fill="currentColor"/><circle cx="15" cy="10" r=".8" fill="currentColor"/></svg><b id="v-happy">55%</b><small>happiness</small></div>
+    <span class="sep"></span>
+    <div class="clock">
+      <div class="when"><b id="v-day">Day 1</b><small id="v-clock">6:00 AM</small></div>
+      <div class="speeds" role="group" aria-label="Game speed">
+        <button class="btn" type="button" data-speed="0" aria-label="Pause"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg></button>
+        <button class="btn" type="button" data-speed="1" aria-label="Normal speed">1×</button>
+        <button class="btn" type="button" data-speed="2" aria-label="Double speed">2×</button>
+        <button class="btn" type="button" data-speed="3" aria-label="Triple speed">3×</button>
+      </div>
+      <div class="skipwrap">
+        <button class="btn" id="skip-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Skip ahead" title="Skip ahead"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 6v12l8-6zM12 6v12l8-6z"/><path d="M21 6v12" stroke="currentColor" stroke-width="2"/></svg></button>
+        <div id="skip-pop" class="plate" hidden><button class="mini" type="button" data-skip="12">Skip 12 hours</button><button class="mini" type="button" data-skip="24">Skip 24 hours</button></div>
+      </div>
+      <button class="btn" id="turn-l" type="button" aria-label="Turn left (Q)" title="Turn left (Q)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5a8.5 8.5 0 1 1 1.2 7.4"/><path d="M4 4v5.5h5.5"/></svg></button>
+      <button class="btn" id="turn-r" type="button" aria-label="Turn right (E)" title="Turn right (E)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9.5a8.5 8.5 0 1 0-1.2 7.4"/><path d="M20 4v5.5h-5.5"/></svg></button>
+    </div>
+  </section>
+</div>
+<div id="gain" aria-hidden="true"></div>
+
+<aside id="quests" class="plate" aria-label="Quest board">
+  <h2>Quest board</h2>
+  <ul id="quest-list"></ul>
+</aside>
+
+<section class="tray plate" aria-label="Build">
+  <p id="status" role="status"></p>
+  <div class="row">
+    <div id="tools"></div>
+    <button class="tool qbtn" id="q-toggle" type="button" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><span>Quests</span><i id="q-badge" hidden></i></button>
+    <div id="cards"></div>
+  </div>
+</section>
+
+<div id="toasts" aria-live="polite"></div>
+<div id="away" class="plate" hidden><strong>Paused while you were away</strong><span>Tap anywhere to keep building.</span></div>
+<div id="tip" class="plate" hidden><strong id="tip-name"></strong><span id="tip-desc"></span></div>
+<div id="menu" hidden>
+  <div class="plate" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+    <h2 id="menu-title">Game menu</h2>
+    <p>Your island saves automatically in this browser. Keys: R road, C clear, X expand, 1–9 buildings, Q/E turn, Space pause, Esc inspect.</p>
+    <p>A day lasts about 5 minutes. Time only moves while you're playing: it pauses when you leave or go idle. Use the skip button to jump ahead 12 or 24 hours.</p>
+    <p>Starting over raises a brand-new island and erases this one.</p>
+    <div class="acts"><button class="btn" id="menu-close" type="button">Back to the island</button><button class="btn danger" id="new-game" type="button">Start a new island</button></div>
+  </div>
+</div>
+<div id="fail" class="plate" hidden>This game needs WebGL to draw the island. Try another browser or turn on hardware acceleration.</div>
+<script type="module" src="/src/main.js"></script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  }
+</script>
+</body>
+</html>
